@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FileVault — Secure Upload System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+  <!-- ── HEADER ─────────────────────────────── -->
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">▲</span>
+        <span class="logo-text">FileVault</span>
+        <span class="logo-tag">v1.0</span>
+      </div>
+      <div class="header-meta">
+        <span class="file-count">{{ files|length }} file{{ 's' if files|length != 1 else '' }} stored</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── FLASH MESSAGES ─────────────────────── -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-container">
+        {% for category, message in messages %}
+          <div class="flash flash--{{ category }}">
+            <span class="flash-icon">
+              {% if category == 'success' %}✓{% elif category == 'danger' %}✗{% elif category == 'warning' %}⚠{% else %}ℹ{% endif %}
+            </span>
+            {{ message }}
+            <button class="flash-close" onclick="this.parentElement.remove()">×</button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- ── MAIN LAYOUT ────────────────────────── -->
+  <main class="layout">
+
+    <!-- LEFT PANEL: Upload -->
+    <aside class="panel panel--upload">
+      <div class="panel-header">
+        <h2 class="panel-title">Upload File</h2>
+        <p class="panel-sub">Max 16 MB per file</p>
+      </div>
+
+      <form id="uploadForm" action="{{ url_for('main.upload') }}" method="POST" enctype="multipart/form-data">
+
+        <!-- Drag-and-drop zone -->
+        <div class="drop-zone" id="dropZone">
+          <div class="drop-zone__icon">⬆</div>
+          <p class="drop-zone__primary">Drag &amp; drop your file here</p>
+          <p class="drop-zone__secondary">or click to browse</p>
+          <input type="file" name="file" id="fileInput" class="drop-zone__input" />
+        </div>
+
+        <!-- Selected file preview -->
+        <div class="file-preview" id="filePreview" style="display:none;">
+          <div class="file-preview__thumb" id="previewThumb"></div>
+          <div class="file-preview__info">
+            <span class="file-preview__name" id="previewName"></span>
+            <span class="file-preview__size" id="previewSize"></span>
+          </div>
+          <button type="button" class="file-preview__clear" id="clearFile">×</button>
+        </div>
+
+        <!-- Allowed types -->
+        <div class="allowed-types">
+          <p class="allowed-types__label">Accepted file types</p>
+          <div class="allowed-types__chips">
+            <span class="chip chip--img">PNG</span>
+            <span class="chip chip--img">JPG</span>
+            <span class="chip chip--img">GIF</span>
+            <span class="chip chip--img">WEBP</span>
+            <span class="chip chip--img">SVG</span>
+            <span class="chip chip--doc">PDF</span>
+            <span class="chip chip--doc">DOC</span>
+            <span class="chip chip--doc">DOCX</span>
+            <span class="chip chip--doc">XLS</span>
+            <span class="chip chip--doc">XLSX</span>
+            <span class="chip chip--doc">TXT</span>
+            <span class="chip chip--doc">CSV</span>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-upload" id="uploadBtn" disabled>
+          <span class="btn-upload__arrow">↑</span>
+          <span id="btnLabel">Select a file to upload</span>
+        </button>
+
+      </form>
+    </aside>
+
+    <!-- RIGHT PANEL: File List -->
+    <section class="panel panel--list">
+      <div class="panel-header">
+        <h2 class="panel-title">Uploaded Files</h2>
+        {% if files %}
+          <span class="panel-badge">{{ files|length }}</span>
+        {% endif %}
+      </div>
+
+      {% if not files %}
+        <div class="empty-state">
+          <div class="empty-state__icon">◫</div>
+          <p class="empty-state__title">No files yet</p>
+          <p class="empty-state__sub">Upload a file to get started</p>
+        </div>
+      {% else %}
+        <div class="file-list">
+          {% for file in files %}
+            <div class="file-card" data-type="{{ file.file_type }}">
+
+              <!-- File type indicator -->
+              <div class="file-card__type-bar type-bar--{{ file.file_type }}"></div>
+
+              <!-- Icon -->
+              <div class="file-card__icon">
+                {% if file.file_type == 'image' %}
+                  {% if file.ext in ['png', 'jpg', 'jpeg', 'gif', 'webp'] %}
+                    <img
+                      src="{{ url_for('main.preview', file_id=file.id) }}"
+                      alt="{{ file.original_name }}"
+                      class="file-card__thumb"
+                      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                    />
+                    <span class="file-card__fallback-icon" style="display:none;">🖼</span>
+                  {% else %}
+                    <span class="file-card__fallback-icon">🖼</span>
+                  {% endif %}
+                {% elif file.ext == 'pdf' %}
+                  <span class="file-card__fallback-icon">📄</span>
+                {% elif file.ext in ['doc', 'docx'] %}
+                  <span class="file-card__fallback-icon">📝</span>
+                {% elif file.ext in ['xls', 'xlsx', 'csv'] %}
+                  <span class="file-card__fallback-icon">📊</span>
+                {% elif file.ext in ['ppt', 'pptx'] %}
+                  <span class="file-card__fallback-icon">📑</span>
+                {% else %}
+                  <span class="file-card__fallback-icon">📁</span>
+                {% endif %}
+              </div>
+
+              <!-- Info -->
+              <div class="file-card__info">
+                <p class="file-card__name" title="{{ file.original_name }}">{{ file.original_name }}</p>
+                <p class="file-card__meta">
+                  <span class="file-card__size">{{ file.size_human }}</span>
+                  <span class="file-card__sep">·</span>
+                  <span class="file-card__date">{{ file.uploaded_at_fmt }}</span>
+                </p>
+                <span class="file-card__ext-badge ext-badge--{{ file.file_type }}">{{ file.ext|upper }}</span>
+              </div>
+
+              <!-- Actions -->
+              <div class="file-card__actions">
+                <a href="{{ url_for('main.download', file_id=file.id) }}" class="btn-action btn-action--download" title="Download">
+                  ↓
+                </a>
+                <form action="{{ url_for('main.delete', file_id=file.id) }}" method="POST" onsubmit="return confirmDelete('{{ file.original_name }}')">
+                  <button type="submit" class="btn-action btn-action--delete" title="Delete">
+                    ×
+                  </button>
+                </form>
+              </div>
+
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </section>
+
+  </main>
+
+  <!-- ── FOOTER ─────────────────────────────── -->
+  <footer class="site-footer">
+    <span>FileVault — Local File Storage System</span>
+    <span class="footer-sep">·</span>
+    <span>Files stored securely on server</span>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
